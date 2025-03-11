@@ -1,76 +1,83 @@
 import { NextResponse } from "next/server";
 
-export async function POST() {
-  // GraphQL query for a single anime by ID
-  const query = `
-    query ($page: Int = 1, $perPage: Int = 6, $sort: [MediaSort], $season: MediaSeason, $seasonYear: Int) {
-  Page(page: $page, perPage: $perPage) {
-    media(
-      sort: $sort
-      type: ANIME
-      season: $season
-      seasonYear: $seasonYear
-    ) {
-      id
-      title {
-        romaji
-        native
-        english
-      }
-      coverImage {
-        extraLarge
-      }
-      popularity
-    }
-  }
-}
-
-  `;
-
-  // Variables used in that query
-  const variables = {
-    page: 1,
-    perPage: 6,
-    sort: ["POPULARITY_DESC"],
-    season: "SPRING",
-    seasonYear: 2025,
-  };
-
-  // AniList GraphQL endpoint + fetch options
-  const url = "https://graphql.anilist.co";
-  const options = {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({
-      query,
-      variables,
-    }),
-  };
-
+export async function POST(req) {
   try {
-    // Call AniList
-    const response = await fetch(url, options);
-    const json = await response.json();
+    // 1. Read filters from the request body
+    const { search, year, genre, status, season } = await req.json();
 
-    // If AniList responded with an error
-    if (!response.ok) {
-      // AniList returns errors in json.errors
-      const errorMessage =
-        json?.errors?.[0]?.message || "AniList request failed";
-      throw new Error(errorMessage);
+    // 2. Build the query
+    const query = `
+      query (
+        $page: Int = 1
+        $perPage: Int = 6
+        $search: String
+        $seasonYear: Int
+        $season: MediaSeason
+        $status: MediaStatus
+        $genre_in: [String]
+      ) {
+        Page(page: $page, perPage: $perPage) {
+          media(
+            type: ANIME
+            sort: [POPULARITY_DESC]
+            search: $search
+            seasonYear: $seasonYear
+            season: $season
+            status: $status
+            genre_in: $genre_in
+          ) {
+            id
+            title {
+              romaji
+              english
+            }
+            coverImage {
+              extraLarge
+            }
+            season
+            seasonYear
+            status
+            genres
+            averageScore
+          }
+        }
+      }
+    `;
+
+    // 3. Build variables from filters
+    const variables = {
+      search: search || undefined,
+      seasonYear: year ? parseInt(year) : undefined,
+      season: season || undefined,
+      status: status || undefined,
+      genre_in: genre ? [genre] : undefined,
+      perPage: 6,
+    };
+
+    // 4. Send request to AniList
+    const aniListRes = await fetch("https://graphql.anilist.co", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ query, variables }),
+    });
+
+    const data = await aniListRes.json();
+
+    if (!aniListRes.ok) {
+      const msg = data?.errors?.[0]?.message || "AniList error";
+      throw new Error(msg);
     }
 
-    // If successful, json.data holds the query results
+    // 5. Return JSON response
     return NextResponse.json({
       success: true,
-      message: "Fetched anime from Anilist.",
-      data: json.data, // e.g. { Media: { id: 15125, title: { ... }, coverImage: ... } }
+      data: data.data, // { Page: { media: [...] } }
     });
   } catch (error) {
-    console.error("AniList API Error:", error);
+    console.error("Error in /api/graph/season:", error);
     return NextResponse.json(
       { success: false, message: error.message },
       { status: 500 }
