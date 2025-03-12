@@ -8,17 +8,38 @@ export async function POST() {
     media(
       sort: $sort
       type: ANIME
+      isAdult: false
     ) {
       id
       title {
-        romaji
-        native
         english
+        native
+        romaji
       }
+      description
       coverImage {
         extraLarge
       }
-      popularity
+      bannerImage
+      episodes
+      endDate {
+        day
+        month
+        year
+      }
+      startDate {
+        day
+        month
+        year
+      }
+      status
+      averageScore
+      trailer {
+        id
+        site
+        thumbnail
+      }
+      isFavourite
     }
   }
 }

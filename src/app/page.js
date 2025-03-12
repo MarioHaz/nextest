@@ -1,56 +1,65 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/home/header";
 import MovieCard from "@/components/home/movieCard";
 import { inputs } from "./data/inputs";
-import { useRouter, useSearchParams } from "next/navigation";
+import Modal from "@/components/modal";
 
 export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Filters
+
+  // ===============================
+  // 1) Local states for UI inputs
+  // ===============================
   const [search, setSearch] = useState("");
   const [year, setYear] = useState("");
   const [genre, setGenre] = useState("");
   const [status, setStatus] = useState("");
   const [season, setSeason] = useState("");
 
-  // Data states
-  const [media, setMedia] = useState([]); // For filtered results
-  const [seasonFav, setSeasonFav] = useState([]); // For “Popular This Season”
-  const [allTimesFav, setAllTimesFav] = useState([]); // For “Popular All Time”
+  // ===============================
+  // 2) Data / UI state
+  // ===============================
+  const [media, setMedia] = useState([]); // Filtered results
+  const [seasonFav, setSeasonFav] = useState([]); // “Popular This Season”
+  const [allTimesFav, setAllTimesFav] = useState([]); // “Popular All Time”
 
-  // Loading & Error
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
 
-  // 1) Helper to see if user has applied ANY filter
-  const hasFilter = Boolean(search || year || genre || status || season);
-
-  // === 1.1) Whenever the user changes a filter in an input, we update the URL ===
-  //        so it reflects the new filter state.
+  // ===============================
+  // 3) Update URL when user changes a filter
+  // ===============================
   function updateUrlParam(paramName, value) {
-    // Clone the current URLSearchParams
     const params = new URLSearchParams(searchParams.toString());
 
     if (value) {
-      // If user typed/selected something, set or update the param
       params.set(paramName, value);
     } else {
-      // If user cleared it, remove the param from the URL
       params.delete(paramName);
     }
 
-    // Now update the URL in place (no page reload)
+    // Replace current URL with new query string, no full reload
     router.replace(`?${params.toString()}`);
   }
 
-  // === 1.2) On filter changes, update both local state and the URL param ===
+  // ===============================
+  // 4) Event handlers for inputs
+  // ===============================
+  //   We do two things:
+  //   (a) set local state (so the input visually updates)
+  //   (b) update the URL param (which triggers the effect below)
+
   const handleSearchKeyDown = (e) => {
     if (e.key === "Enter") {
-      setSearch(e.target.value);
-      updateUrlParam("search", e.target.value);
+      const value = e.target.value;
+      setSearch(value);
+      updateUrlParam("search", value);
     }
   };
 
@@ -78,20 +87,41 @@ export default function Home() {
     updateUrlParam("season", value);
   };
 
-  // 2) `useEffect` triggers whenever ANY filter changes
+  // ===============================
+  // 5) Single effect: read query params => set local states => fetch
+  // ===============================
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-
       try {
+        setLoading(true);
+        setError(null);
+
+        // -- (A) Parse the latest query params --
+        const spSearch = searchParams.get("search") || "";
+        const spYear = searchParams.get("year") || "";
+        const spGenre = searchParams.get("genre") || "";
+        const spStatus = searchParams.get("status") || "";
+        const spSeason = searchParams.get("season") || "";
+
+        // Update local state so inputs reflect the query
+        setSearch(spSearch);
+        setYear(spYear);
+        setGenre(spGenre);
+        setStatus(spStatus);
+        setSeason(spSeason);
+
+        // Determine if ANY filter is actually set
+        const hasFilter = Boolean(
+          spSearch || spYear || spGenre || spStatus || spSeason
+        );
+
+        // -- (B) Fetch data depending on hasFilter --
         if (!hasFilter) {
-          // --- NO FILTERS => fetch your “fav” data in parallel ---
+          // No filters => fetch "Popular This Season" + "All Time" in parallel
           const [resSeason, resAllTimes] = await Promise.all([
             fetch("/api/graph/getAllByRating", { method: "POST" }),
             fetch("/api/graph/getAllTimesFav", { method: "POST" }),
           ]);
-
           const [dataSeason, dataAllTimes] = await Promise.all([
             resSeason.json(),
             resAllTimes.json(),
@@ -102,24 +132,25 @@ export default function Home() {
 
           setSeasonFav(dataSeason?.data?.Page?.media || []);
           setAllTimesFav(dataAllTimes?.data?.Page?.media || []);
-
-          // Clear the filtered media if no filter is applied
-          setMedia([]);
+          setMedia([]); // Clear filtered results
         } else {
-          // --- FILTERS APPLIED => fetch from filter route ---
+          // If there's at least one filter => fetch filtered data
           const response = await fetch("/api/graph/getByFilters", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ search, year, genre, status, season }),
+            body: JSON.stringify({
+              search: spSearch,
+              year: spYear,
+              genre: spGenre,
+              status: spStatus,
+              season: spSeason,
+            }),
           });
           const json = await response.json();
 
           if (!json.success) throw new Error(json.message);
 
-          // Put filtered results into `media`
           setMedia(json.data.Page.media || []);
-
-          // Clear out the favorites
           setSeasonFav([]);
           setAllTimesFav([]);
         }
@@ -131,38 +162,42 @@ export default function Home() {
     };
 
     fetchData();
-  }, [search, year, genre, status, season, hasFilter]);
+  }, [searchParams]);
+  // ^ We only watch searchParams. Whenever the query changes (user typed, or page reloaded with ?something),
+  //   we re-run this effect to read them & fetch.
 
-  // 3) Render logic
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
-
-  // function to clear filters
+  // ===============================
+  // 6) Clear all filters
+  // ===============================
   const handleClearFilters = () => {
-    setSearch("");
-    setYear("");
-    setGenre("");
-    setStatus("");
-    setSeason("");
-    updateUrlParam("search", "");
-    updateUrlParam("year", "");
-    updateUrlParam("genre", "");
-    updateUrlParam("status", "");
-    updateUrlParam("season", "");
+    // The simplest approach is to go back to "/"
+    // or you can remove them param by param:
+    router.replace("/");
   };
+
+  const handleAnimeClick = (item) => {
+    setSelectedItem(item);
+    setShowModal(true);
+  };
+
+  // ===============================
+  // 7) Render
+  // ===============================
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
   return (
     <div className="w-full h-screen mb-40">
-      <Header />
       <main className="flex flex-col items-center justify-around m-20 gap-20">
         {/* Filters Section */}
         <div className="flex flex-row gap-8 items-center justify-center">
-          {/* Each input config from ./data/inputs can point to the right onChange */}
           {inputs.map((input) => (
             <div key={input.label} className="flex flex-col gap-2">
               <label htmlFor="name">{input.label}</label>
               {input.type === "selector" ? (
                 <select
                   className="bg-white rounded-md w-40 h-6"
+                  // Value is always from local state (which we sync from searchParams in effect)
                   value={
                     input.label === "Year"
                       ? year
@@ -174,17 +209,17 @@ export default function Home() {
                       ? genre
                       : ""
                   }
-                  onChange={(e) =>
-                    input.label === "Year"
-                      ? handleYearChange(e)
-                      : input.label === "Airing Status"
-                      ? handleStatusChange(e)
-                      : input.label === "Season"
-                      ? handleSeasonChange(e)
-                      : input.label === "Genres"
-                      ? handleGenreChange(e)
-                      : null
-                  }
+                  onChange={(e) => {
+                    if (input.label === "Year") {
+                      handleYearChange(e);
+                    } else if (input.label === "Airing Status") {
+                      handleStatusChange(e);
+                    } else if (input.label === "Season") {
+                      handleSeasonChange(e);
+                    } else if (input.label === "Genres") {
+                      handleGenreChange(e);
+                    }
+                  }}
                 >
                   <option value="">Any</option>
                   {input.options.map((option) => (
@@ -197,8 +232,10 @@ export default function Home() {
                 <input
                   type={input.type}
                   className="bg-white rounded-md"
-                  defaultValue={search}
+                  // Here we use 'value' not 'defaultValue'
+                  value={search}
                   placeholder="Search your favorite anime"
+                  onChange={(e) => setSearch(e.target.value)} // updates local state, but no immediate param set
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       handleSearchKeyDown(e);
@@ -209,9 +246,7 @@ export default function Home() {
             </div>
           ))}
           <button
-            onClick={() => {
-              handleClearFilters();
-            }}
+            onClick={handleClearFilters}
             className="bg-white rounded-md w-40 h-6"
           >
             Clear
@@ -222,38 +257,54 @@ export default function Home() {
         {media.length > 0 ? (
           <div className="w-full">
             <h2>FILTERED RESULTS</h2>
-            <div className="flex flex-row gap-8">
+            <div className="flex flex-row gap-8 ">
               {media.map((item) => (
-                <div key={item.id}>
-                  <MovieCard item={item} />
-                </div>
+                <MovieCard
+                  key={item.id}
+                  item={item}
+                  handleAnimeClick={handleAnimeClick}
+                />
               ))}
             </div>
           </div>
         ) : (
-          // Show “fav” sections only if user not filtering
           <div className="flex flex-col items-center justify-around gap-40 w-full">
             {/* Popular This Season */}
             <div className="w-full">
               <h2>POPULAR THIS SEASON</h2>
               <div className="flex flex-row gap-8">
                 {seasonFav.map((item) => (
-                  <MovieCard key={item.id} item={item} />
+                  <MovieCard
+                    key={item.id}
+                    item={item}
+                    handleAnimeClick={handleAnimeClick}
+                  />
                 ))}
               </div>
             </div>
-            {/* Popular All Times */}
+            {/* Popular All Time */}
             <div className="w-full">
               <h2>POPULAR ALL TIME</h2>
               <div className="flex flex-row gap-8">
                 {allTimesFav.map((item) => (
-                  <MovieCard key={item.id} item={item} />
+                  <MovieCard
+                    key={item.id}
+                    item={item}
+                    handleAnimeClick={handleAnimeClick}
+                  />
                 ))}
               </div>
             </div>
           </div>
         )}
       </main>
+      {showModal && (
+        <Modal
+          item={selectedItem}
+          setSelectedItem={setSelectedItem}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </div>
   );
 }

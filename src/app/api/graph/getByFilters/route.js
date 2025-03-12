@@ -19,6 +19,7 @@ export async function POST(req) {
         Page(page: $page, perPage: $perPage) {
           media(
             type: ANIME
+            isAdult: false
             sort: [POPULARITY_DESC]
             search: $search
             seasonYear: $seasonYear
@@ -27,18 +28,35 @@ export async function POST(req) {
             genre_in: $genre_in
           ) {
             id
-            title {
-              romaji
-              english
-            }
-            coverImage {
-              extraLarge
-            }
-            season
-            seasonYear
-            status
-            genres
-            averageScore
+      title {
+        english
+        native
+        romaji
+      }
+      description
+      coverImage {
+        extraLarge
+      }
+      bannerImage
+      episodes
+      endDate {
+        day
+        month
+        year
+      }
+      startDate {
+        day
+        month
+        year
+      }
+      status
+      averageScore
+      trailer {
+        id
+        site
+        thumbnail
+      }
+      isFavourite
           }
         }
       }

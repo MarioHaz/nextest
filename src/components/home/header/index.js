@@ -9,9 +9,9 @@ export default function Header() {
         <Link href="/" className="hover:underline">
           Home
         </Link>
-        <a href="/about" className="hover:underline">
+        <Link href="/favorites" className="hover:underline">
           Favorites
-        </a>
+        </Link>
       </nav>
     </header>
   );

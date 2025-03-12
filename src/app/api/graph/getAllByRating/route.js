@@ -3,24 +3,39 @@ import { NextResponse } from "next/server";
 export async function POST() {
   // GraphQL query for a single anime by ID
   const query = `
-    query ($page: Int = 1, $perPage: Int = 6, $sort: [MediaSort], $season: MediaSeason, $seasonYear: Int) {
+   query Page($page: Int, $perPage: Int, $sort: [MediaSort], $type: MediaType, $isAdult: Boolean, $season: MediaSeason, $seasonYear: Int) {
   Page(page: $page, perPage: $perPage) {
-    media(
-      sort: $sort
-      type: ANIME
-      season: $season
-      seasonYear: $seasonYear
-    ) {
+    media(sort: $sort, type: $type, isAdult: $isAdult, season: $season, seasonYear: $seasonYear) {
       id
       title {
-        romaji
-        native
         english
+        native
+        romaji
       }
+      description
       coverImage {
         extraLarge
       }
-      popularity
+      bannerImage
+      episodes
+      endDate {
+        day
+        month
+        year
+      }
+      startDate {
+        day
+        month
+        year
+      }
+      status
+      averageScore
+      trailer {
+        id
+        site
+        thumbnail
+      }
+      isFavourite
     }
   }
 }

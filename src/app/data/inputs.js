@@ -29,7 +29,7 @@ export const inputs = [
     label: "Airing Status",
     type: "selector",
 
-    options: ["Ongoing", "Finished"],
+    options: ["RELEASING", "FINISHED"],
   },
   {
     label: "Season",
