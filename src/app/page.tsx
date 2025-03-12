@@ -1,41 +1,66 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+  ChangeEvent,
+  KeyboardEvent,
+  JSX,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Header from "@/components/home/header";
-import MovieCard from "@/components/home/movieCard";
+import MovieCard from "../components/home/movieCard";
 import { inputs } from "./data/inputs";
-import Modal from "@/components/modal";
+import Modal from "../components/modal";
 
-export default function Home() {
+interface MediaItem {
+  id: number | string;
+  bannerImage?: string;
+  title?: {
+    english?: string;
+    native?: string;
+  };
+  description?: string;
+  episodes?: number;
+  averageScore?: number;
+  status?: string;
+  startDate?: { day: number; month: number; year: number };
+  endDate?: { day: number; month: number; year: number };
+  trailer?: {
+    site?: string;
+    id?: string;
+  };
+  // Extend with additional fields if needed
+}
+
+export default function Home(): JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   // ===============================
   // 1) Local states for UI inputs
   // ===============================
-  const [search, setSearch] = useState("");
-  const [year, setYear] = useState("");
-  const [genre, setGenre] = useState("");
-  const [status, setStatus] = useState("");
-  const [season, setSeason] = useState("");
+  const [search, setSearch] = useState<string>("");
+  const [year, setYear] = useState<string>("");
+  const [genre, setGenre] = useState<string>("");
+  const [status, setStatus] = useState<string>("");
+  const [season, setSeason] = useState<string>("");
 
   // ===============================
   // 2) Data / UI state
   // ===============================
-  const [media, setMedia] = useState([]); // Filtered results
-  const [seasonFav, setSeasonFav] = useState([]); // “Popular This Season”
-  const [allTimesFav, setAllTimesFav] = useState([]); // “Popular All Time”
+  const [media, setMedia] = useState<MediaItem[]>([]); // Filtered results
+  const [seasonFav, setSeasonFav] = useState<MediaItem[]>([]); // “Popular This Season”
+  const [allTimesFav, setAllTimesFav] = useState<MediaItem[]>([]); // “Popular All Time”
 
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState<boolean>(false);
+  const [selectedItem, setSelectedItem] = useState<MediaItem | null>(null);
 
   // ===============================
   // 3) Update URL when user changes a filter
   // ===============================
-  function updateUrlParam(paramName, value) {
+  function updateUrlParam(paramName: string, value: string): void {
     const params = new URLSearchParams(searchParams.toString());
 
     if (value) {
@@ -51,38 +76,34 @@ export default function Home() {
   // ===============================
   // 4) Event handlers for inputs
   // ===============================
-  //   We do two things:
-  //   (a) set local state (so the input visually updates)
-  //   (b) update the URL param (which triggers the effect below)
-
-  const handleSearchKeyDown = (e) => {
+  const handleSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === "Enter") {
-      const value = e.target.value;
+      const value = e.currentTarget.value;
       setSearch(value);
       updateUrlParam("search", value);
     }
   };
 
-  const handleYearChange = (e) => {
-    const value = e.target.value;
+  const handleYearChange = (e: ChangeEvent<HTMLSelectElement>): void => {
+    const value = e.currentTarget.value;
     setYear(value);
     updateUrlParam("year", value);
   };
 
-  const handleGenreChange = (e) => {
-    const value = e.target.value;
+  const handleGenreChange = (e: ChangeEvent<HTMLSelectElement>): void => {
+    const value = e.currentTarget.value;
     setGenre(value);
     updateUrlParam("genre", value);
   };
 
-  const handleStatusChange = (e) => {
-    const value = e.target.value;
+  const handleStatusChange = (e: ChangeEvent<HTMLSelectElement>): void => {
+    const value = e.currentTarget.value;
     setStatus(value);
     updateUrlParam("status", value);
   };
 
-  const handleSeasonChange = (e) => {
-    const value = e.target.value;
+  const handleSeasonChange = (e: ChangeEvent<HTMLSelectElement>): void => {
+    const value = e.currentTarget.value;
     setSeason(value);
     updateUrlParam("season", value);
   };
@@ -91,7 +112,7 @@ export default function Home() {
   // 5) Single effect: read query params => set local states => fetch
   // ===============================
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchData = async (): Promise<void> => {
       try {
         setLoading(true);
         setError(null);
@@ -154,7 +175,7 @@ export default function Home() {
           setSeasonFav([]);
           setAllTimesFav([]);
         }
-      } catch (err) {
+      } catch (err: any) {
         setError(err.message || String(err));
       } finally {
         setLoading(false);
@@ -163,19 +184,15 @@ export default function Home() {
 
     fetchData();
   }, [searchParams]);
-  // ^ We only watch searchParams. Whenever the query changes (user typed, or page reloaded with ?something),
-  //   we re-run this effect to read them & fetch.
 
   // ===============================
   // 6) Clear all filters
   // ===============================
-  const handleClearFilters = () => {
-    // The simplest approach is to go back to "/"
-    // or you can remove them param by param:
+  const handleClearFilters = (): void => {
     router.replace("/");
   };
 
-  const handleAnimeClick = (item) => {
+  const handleAnimeClick = (item: MediaItem): void => {
     setSelectedItem(item);
     setShowModal(true);
   };
@@ -184,7 +201,7 @@ export default function Home() {
   // 7) Render
   // ===============================
   if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error.message}</div>;
+  if (error) return <div>Error: {error}</div>;
 
   return (
     <div className="w-full h-screen mb-40">
@@ -197,7 +214,6 @@ export default function Home() {
               {input.type === "selector" ? (
                 <select
                   className="bg-white rounded-md w-40 h-6"
-                  // Value is always from local state (which we sync from searchParams in effect)
                   value={
                     input.label === "Year"
                       ? year
@@ -222,7 +238,7 @@ export default function Home() {
                   }}
                 >
                   <option value="">Any</option>
-                  {input.options.map((option) => (
+                  {(input.options as string[]).map((option) => (
                     <option key={option} value={option}>
                       {option}
                     </option>
@@ -232,10 +248,9 @@ export default function Home() {
                 <input
                   type={input.type}
                   className="bg-white rounded-md"
-                  // Here we use 'value' not 'defaultValue'
                   value={search}
                   placeholder="Search your favorite anime"
-                  onChange={(e) => setSearch(e.target.value)} // updates local state, but no immediate param set
+                  onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       handleSearchKeyDown(e);
@@ -257,8 +272,8 @@ export default function Home() {
         {media.length > 0 ? (
           <div className="w-full">
             <h2>FILTERED RESULTS</h2>
-            <div className="flex flex-row gap-8 ">
-              {media.map((item) => (
+            <div className="flex flex-row gap-8">
+              {media.map((item: MediaItem) => (
                 <MovieCard
                   key={item.id}
                   item={item}
@@ -273,7 +288,7 @@ export default function Home() {
             <div className="w-full">
               <h2>POPULAR THIS SEASON</h2>
               <div className="flex flex-row gap-8">
-                {seasonFav.map((item) => (
+                {seasonFav.map((item: MediaItem) => (
                   <MovieCard
                     key={item.id}
                     item={item}
@@ -286,7 +301,7 @@ export default function Home() {
             <div className="w-full">
               <h2>POPULAR ALL TIME</h2>
               <div className="flex flex-row gap-8">
-                {allTimesFav.map((item) => (
+                {allTimesFav.map((item: MediaItem) => (
                   <MovieCard
                     key={item.id}
                     item={item}

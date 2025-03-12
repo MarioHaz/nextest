@@ -1,15 +1,57 @@
-import { addToFavorites, removeFromFavorites } from "@/app/store/likeSlice";
+import { addToFavorites, removeFromFavorites } from "../../app/store/likeSlice";
 import Image from "next/image";
-import React from "react";
-import { FaRegHeart } from "react-icons/fa6";
-import { FaHeart } from "react-icons/fa6";
+import React, { JSX } from "react";
+import { FaRegHeart, FaHeart } from "react-icons/fa6";
 import { useDispatch, useSelector } from "react-redux";
 
-export default function Modal({ onClose, item, setSelectedItem }) {
-  const favorites = useSelector((state) => state.favorites);
+export interface MediaItem {
+  id: number | string;
+  bannerImage?: string;
+  title?: {
+    english?: string;
+    native?: string;
+    romaji?: string;
+  };
+  description?: string;
+  episodes?: number;
+  averageScore?: number;
+  status?: string;
+  startDate?: { day: number; month: number; year: number };
+  endDate?: { day: number; month: number; year: number };
+  trailer?: {
+    site?: string;
+    id?: string;
+  };
+  // Add more fields as needed
+}
+
+interface FavoritesState {
+  favorites: MediaItem[];
+}
+
+interface ModalProps {
+  onClose: () => void;
+  item: MediaItem;
+  setSelectedItem: (item: MediaItem | null) => void;
+}
+
+export default function Modal({
+  onClose,
+  item,
+  setSelectedItem,
+}: ModalProps): JSX.Element {
+  const favorites = useSelector(
+    (state: { favorites: FavoritesState }) => state.favorites
+  );
   const dispatch = useDispatch();
-  const isFavorite = favorites.favorites.some((fav) => fav.id === item.id);
-  function formatDate(date) {
+
+  const isFavorite = favorites.favorites.some(
+    (fav: MediaItem) => fav.id === item.id
+  );
+
+  function formatDate(
+    date: { day: number; month: number; year: number } | null | undefined
+  ): string {
     if (!date || !date.day || !date.month || !date.year) {
       return "N/A";
     }
@@ -29,6 +71,7 @@ export default function Modal({ onClose, item, setSelectedItem }) {
     ];
     return `${monthNames[date.month - 1]} ${date.day}, ${date.year}`;
   }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Overlay with semi-transparent background */}
